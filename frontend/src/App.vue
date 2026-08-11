@@ -22,8 +22,8 @@ const isDesktop = useIsDesktop();
     <RouterView />
     <template v-if="auth.isAuthenticated">
       <BottomNav />
-      <FloatingAddButton />
       <PwaUpdatePrompt />
     </template>
   </template>
+  <FloatingAddButton v-if="auth.isAuthenticated" />
 </template>
