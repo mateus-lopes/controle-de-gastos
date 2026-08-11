@@ -16,10 +16,7 @@ function select(type: "expense" | "income" | "bill") {
   <!-- Backdrop invisível para fechar -->
   <div v-if="open" class="fixed inset-0 z-30" @click="open = false" />
 
-  <div
-    class="fixed z-40 flex flex-col items-end"
-    style="bottom: calc(var(--nav-height) + 16px); right: max(20px, calc((100vw - 480px) / 2 + 20px));"
-  >
+  <div class="fab-container fixed z-40 flex flex-col items-end">
     <!-- Opções do speed dial -->
     <div class="flex flex-col items-end gap-3 mb-3">
       <div v-if="open" class="flex items-center gap-2.5 animate-dial" style="animation-delay: 80ms">
@@ -102,6 +99,16 @@ function select(type: "expense" | "income" | "bill") {
 </template>
 
 <style scoped>
+.fab-container {
+  bottom: calc(var(--nav-height) + 16px);
+  right: max(20px, calc((100vw - 480px) / 2 + 20px));
+}
+@media (min-width: 1024px) {
+  .fab-container {
+    bottom: 24px;
+    right: 24px;
+  }
+}
 @keyframes dialIn {
   from { opacity: 0; transform: translateY(10px) scale(0.8); }
   to   { opacity: 1; transform: translateY(0)   scale(1);   }
