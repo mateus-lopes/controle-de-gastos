@@ -1,0 +1,254 @@
+import { eq, and, sql } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "../../db/client";
+import { bills, billOccurrences, accounts, categories, transactions, BILL_TYPES, BILL_FREQUENCIES } from "../../db/schema";
+
+export const billSchema = z.object({
+  name: z.string().min(1).max(150),
+  type: z.enum(BILL_TYPES),
+  fromAccountId: z.number().int().optional().nullable(),
+  toAccountId: z.number().int().optional().nullable(),
+  amount: z.coerce.number().positive(),
+  categoryId: z.number().int().optional().nullable(),
+  frequency: z.enum(BILL_FREQUENCIES).default("monthly"),
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+function daysInMonth(year: number, month: number) {
+  return new Date(year, month, 0).getDate();
+}
+
+function calcDueDate(startDate: string, month: number, year: number): string {
+  const start = new Date(startDate + "T00:00:00");
+  const day = start.getDate();
+  const maxDay = daysInMonth(year, month);
+  const dueDay = Math.min(day, maxDay);
+  return `${year}-${String(month).padStart(2, "0")}-${String(dueDay).padStart(2, "0")}`;
+}
+
+function billOccursInMonth(bill: { startDate: string; endDate: string | null; frequency: string }, month: number, year: number): boolean {
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  const start = new Date(bill.startDate + "T00:00:00");
+  const end = bill.endDate ? new Date(bill.endDate + "T00:00:00") : null;
+
+  if (start > lastDay) return false;
+  if (end && end < firstDay) return false;
+
+  if (bill.frequency === "monthly") return true;
+
+  if (bill.frequency === "yearly") {
+    return start.getMonth() === month - 1;
+  }
+
+  if (bill.frequency === "quarterly") {
+    const monthsDiff = (year - start.getFullYear()) * 12 + (month - 1 - start.getMonth());
+    return monthsDiff >= 0 && monthsDiff % 3 === 0;
+  }
+
+  if (bill.frequency === "biweekly" || bill.frequency === "weekly") {
+    return true;
+  }
+
+  return false;
+}
+
+export async function ensureOccurrencesForMonth(userId: number, month: number, year: number) {
+  const activeBills = await db
+    .select()
+    .from(bills)
+    .where(and(eq(bills.userId, userId), eq(bills.active, true)));
+
+  if (!activeBills.length) return;
+
+  const existingOccurrences = await db
+    .select({ billId: billOccurrences.billId })
+    .from(billOccurrences)
+    .where(
+      and(
+        eq(billOccurrences.userId, userId),
+        eq(billOccurrences.month, month),
+        eq(billOccurrences.year, year)
+      )
+    );
+
+  const existingBillIds = new Set(existingOccurrences.map((o) => o.billId));
+
+  const toInsert = activeBills
+    .filter((bill) => !existingBillIds.has(bill.id) && billOccursInMonth(bill, month, year))
+    .map((bill) => ({
+      billId: bill.id,
+      userId,
+      dueDate: calcDueDate(bill.startDate, month, year),
+      month,
+      year,
+      amount: bill.amount,
+      paid: false,
+      paidAt: null,
+      transactionId: null,
+    }));
+
+  if (toInsert.length) {
+    await db.insert(billOccurrences).values(toInsert);
+  }
+}
+
+export async function listBillsForMonth(userId: number, month: number, year: number) {
+  await ensureOccurrencesForMonth(userId, month, year);
+
+  const rows = await db
+    .select({
+      bill: bills,
+      occurrence: billOccurrences,
+    })
+    .from(bills)
+    .leftJoin(
+      billOccurrences,
+      and(
+        eq(billOccurrences.billId, bills.id),
+        eq(billOccurrences.month, month),
+        eq(billOccurrences.year, year)
+      )
+    )
+    .where(and(eq(bills.userId, userId), eq(bills.active, true)))
+    .orderBy(bills.createdAt);
+
+  const accountIds = [...new Set(
+    rows.flatMap((r) => [r.bill.fromAccountId, r.bill.toAccountId]).filter(Boolean) as number[]
+  )];
+  const categoryIds = [...new Set(rows.map((r) => r.bill.categoryId).filter(Boolean) as number[])];
+
+  const [accts, cats] = await Promise.all([
+    accountIds.length
+      ? db.select({ id: accounts.id, name: accounts.name, type: accounts.type, color: accounts.color }).from(accounts).where(eq(accounts.userId, userId))
+      : [],
+    categoryIds.length
+      ? db.select({ id: categories.id, name: categories.name, color: categories.color }).from(categories).where(eq(categories.userId, userId))
+      : [],
+  ]);
+
+  const accountMap = new Map(accts.map((a) => [a.id, a]));
+  const categoryMap = new Map(cats.map((c) => [c.id, c]));
+
+  return rows.map((r) => ({
+    ...r.bill,
+    occurrence: r.occurrence ?? null,
+    fromAccount: r.bill.fromAccountId ? accountMap.get(r.bill.fromAccountId) ?? null : null,
+    toAccount: r.bill.toAccountId ? accountMap.get(r.bill.toAccountId) ?? null : null,
+    category: r.bill.categoryId ? categoryMap.get(r.bill.categoryId) ?? null : null,
+  }));
+}
+
+export async function createBill(userId: number, data: z.infer<typeof billSchema>) {
+  const [bill] = await db
+    .insert(bills)
+    .values({
+      userId,
+      name: data.name,
+      type: data.type,
+      fromAccountId: data.fromAccountId ?? null,
+      toAccountId: data.toAccountId ?? null,
+      amount: String(data.amount),
+      categoryId: data.categoryId ?? null,
+      frequency: data.frequency,
+      startDate: data.startDate,
+      endDate: data.endDate ?? null,
+      notes: data.notes ?? null,
+    })
+    .returning();
+  return bill;
+}
+
+export async function updateBill(userId: number, id: number, data: z.infer<typeof billSchema>) {
+  const [bill] = await db
+    .update(bills)
+    .set({
+      name: data.name,
+      type: data.type,
+      fromAccountId: data.fromAccountId ?? null,
+      toAccountId: data.toAccountId ?? null,
+      amount: String(data.amount),
+      categoryId: data.categoryId ?? null,
+      frequency: data.frequency,
+      startDate: data.startDate,
+      endDate: data.endDate ?? null,
+      notes: data.notes ?? null,
+    })
+    .where(and(eq(bills.id, id), eq(bills.userId, userId)))
+    .returning();
+  return bill ?? null;
+}
+
+export async function deleteBill(userId: number, id: number) {
+  const [bill] = await db
+    .update(bills)
+    .set({ active: false })
+    .where(and(eq(bills.id, id), eq(bills.userId, userId)))
+    .returning();
+  return bill ?? null;
+}
+
+export async function toggleOccurrencePaid(userId: number, occurrenceId: number) {
+  const [occurrence] = await db
+    .select({ occ: billOccurrences, bill: bills })
+    .from(billOccurrences)
+    .innerJoin(bills, eq(billOccurrences.billId, bills.id))
+    .where(and(eq(billOccurrences.id, occurrenceId), eq(billOccurrences.userId, userId)));
+
+  if (!occurrence) return null;
+
+  const { occ, bill } = occurrence;
+  const nowPaid = !occ.paid;
+  const paidAt = nowPaid ? new Date() : null;
+
+  const [updated] = await db
+    .update(billOccurrences)
+    .set({ paid: nowPaid, paidAt })
+    .where(eq(billOccurrences.id, occurrenceId))
+    .returning();
+
+  if (bill.type === "transfer" && bill.toAccountId) {
+    const delta = nowPaid
+      ? parseFloat(occ.amount)
+      : -parseFloat(occ.amount);
+
+    await db
+      .update(accounts)
+      .set({ currentAmount: sql`current_amount + ${delta}` })
+      .where(eq(accounts.id, bill.toAccountId));
+
+    if (nowPaid) {
+      const [tx] = await db
+        .insert(transactions)
+        .values({
+          userId,
+          type: "transfer",
+          fromAccountId: bill.fromAccountId ?? null,
+          toAccountId: bill.toAccountId,
+          amount: occ.amount,
+          date: occ.dueDate,
+          month: occ.month,
+          year: occ.year,
+          description: bill.name,
+          billId: bill.id,
+        })
+        .returning();
+
+      await db
+        .update(billOccurrences)
+        .set({ transactionId: tx.id })
+        .where(eq(billOccurrences.id, occurrenceId));
+
+      return { ...updated, transactionId: tx.id };
+    } else {
+      if (occ.transactionId) {
+        await db.delete(transactions).where(eq(transactions.id, occ.transactionId));
+        await db.update(billOccurrences).set({ transactionId: null }).where(eq(billOccurrences.id, occurrenceId));
+      }
+    }
+  }
+
+  return updated;
+}
