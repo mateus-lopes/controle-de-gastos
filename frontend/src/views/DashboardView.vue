@@ -137,7 +137,7 @@ const pieOptions = computed(() => {
 <template>
   <div class="page">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-5">
+    <div class="flex items-center justify-between mb-5 lg:hidden">
       <MonthNavigator />
     </div>
 
