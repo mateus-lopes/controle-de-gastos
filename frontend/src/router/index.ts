@@ -10,7 +10,7 @@ const router = createRouter({
     { path: "/recorrentes", component: () => import("../views/BillsView.vue") },
     { path: "/contas", component: () => import("../views/AccountsView.vue") },
     { path: "/categorias", component: () => import("../views/CategoriesView.vue") },
-    { path: "/teste1", component: () => import("../views/Teste1View.vue") },
+    { path: "/analise-gastos", component: () => import("../views/AnaliseGastosView.vue") },
   ],
 });
 

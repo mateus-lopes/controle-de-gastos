@@ -8,7 +8,7 @@ const auth = useAuthStore();
 
 const navItems = [
   { to: "/",            label: "Dashboard",   icon: `<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>` },
-  { to: "/teste1",      label: "Análise de Gastos", icon: `<path d="M3 3v18h18"/><polyline points="7 16 12 11 15 14 19 8"/>` },
+  { to: "/analise-gastos", label: "Análise de Gastos", icon: `<path d="M3 3v18h18"/><polyline points="7 16 12 11 15 14 19 8"/>` },
   { to: "/transacoes",  label: "Transações",  icon: `<path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>` },
   { to: "/recorrentes", label: "Recorrentes", icon: `<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>` },
   { to: "/contas",      label: "Contas",      icon: `<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>` },

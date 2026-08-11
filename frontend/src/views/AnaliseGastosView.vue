@@ -63,7 +63,6 @@ onMounted(load);
 
 // ── Mês atual ──────────────────────────────────────────────────────────────
 const curSnap   = computed(() => months.value[months.value.length - 1]);
-const curLabel  = computed(() => curSnap.value ? `${MONTH_NAMES[curSnap.value.month - 1]}/${curSnap.value.year}` : "");
 
 // ── Comprometimento ─────────────────────────────────────────────────────────
 const committed     = computed(() => curSnap.value?.breakdown.billExpense ?? 0);
@@ -314,14 +313,6 @@ const incomeChart = computed(() => ({
 
 <template>
   <div class="page space-y-5">
-
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-lg font-bold text-foreground">Análise de Gastos</h1>
-      </div>
-      <span v-if="curLabel" class="text-xs text-muted-foreground bg-secondary px-2.5 py-1 rounded-full">{{ curLabel }}</span>
-    </div>
 
     <template v-if="loading">
       <Skeleton class="h-36 w-full rounded-xl" />
