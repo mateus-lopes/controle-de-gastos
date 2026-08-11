@@ -1,8 +1,8 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pnpm install && pnpm db:migrate && pnpm build"
+buildCommand = "npm install && npm run db:migrate && npm run build"
 
 [deploy]
-startCommand = "pnpm start"
+startCommand = "npm run start"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
