@@ -76,6 +76,7 @@ async function seed() {
     { userId: uid, name: "Apartamento (4x)",      type: "expense", amount: "300",     frequency: "monthly", startDate: start, endDate: "2026-11-30", fromAccountId: bbCorrente.id, categoryId: cCasa.id },
     { userId: uid, name: "Dentista Mariana (19x)",type: "expense", amount: "256",     frequency: "monthly", startDate: start, endDate: "2028-02-29", fromAccountId: bbCorrente.id, categoryId: cSaude.id },
     // Fixas mensais
+    { userId: uid, name: "Internet Mateus",   type: "expense", amount: "30.25", frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cCasa.id },
     { userId: uid, name: "Internet Mariana",  type: "expense", amount: "42",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cCasa.id },
     { userId: uid, name: "Totalpass Mariana", type: "expense", amount: "109",  frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cSaude.id },
     { userId: uid, name: "Dentista Mateus",   type: "expense", amount: "200",  frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cSaude.id },
