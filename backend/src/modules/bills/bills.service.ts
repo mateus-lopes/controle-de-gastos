@@ -248,6 +248,18 @@ export async function toggleOccurrencePaid(userId: number, occurrenceId: number)
         await db.update(billOccurrences).set({ transactionId: null }).where(eq(billOccurrences.id, occurrenceId));
       }
     }
+  } else if (bill.type === "income" && bill.toAccountId) {
+    const delta = nowPaid ? parseFloat(occ.amount) : -parseFloat(occ.amount);
+    await db
+      .update(accounts)
+      .set({ currentAmount: sql`current_amount + ${delta}` })
+      .where(eq(accounts.id, bill.toAccountId));
+  } else if (bill.type === "expense" && bill.fromAccountId) {
+    const delta = nowPaid ? -parseFloat(occ.amount) : parseFloat(occ.amount);
+    await db
+      .update(accounts)
+      .set({ currentAmount: sql`current_amount + ${delta}` })
+      .where(eq(accounts.id, bill.fromAccountId));
   }
 
   return updated;
