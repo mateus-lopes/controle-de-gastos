@@ -49,8 +49,8 @@ async function upsertCarryOverTransaction(userId: number, month: number, year: n
   await db.insert(transactions).values({
     userId,
     type,
-    fromAccountId: null,
-    toAccountId: checkingAccount.id,
+    fromAccountId: prevSaldo < 0 ? checkingAccount.id : null,
+    toAccountId: prevSaldo > 0 ? checkingAccount.id : null,
     amount,
     date: `${year}-${mm}-01`,
     month,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import { useAccountsStore, type Account } from "../stores/accounts";
 import { useMonthStore } from "../stores/month";
 import { useToast } from "../composables/useToast";
@@ -16,6 +16,12 @@ const { success, error } = useToast();
 const showDialog = ref(false);
 const submitting = ref(false);
 const form = ref({ name: "", type: "checking" as Account["type"], color: "#8b5cf6", targetAmount: "", showProgress: false });
+
+// Dialog de pagamento de fatura
+const payDialog = ref(false);
+const paySubmitting = ref(false);
+const payingCard = ref<{ id: number; name: string; amount: number } | null>(null);
+const payFromAccountId = ref<string>("");
 
 const typeOptions = [
   { value: "checking", label: "Conta Corrente" },
@@ -36,16 +42,32 @@ const typeIcon: Record<string, string> = {
   investment: `<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>`,
 };
 
-onMounted(async () => {
-  await store.loadAccounts();
-  for (const cc of store.accounts.filter(a => a.type === "credit_card")) {
-    await loadInvoice(cc.id);
-  }
-});
+const accounts = ref<(Account & { balance: number })[]>([]);
+const loading = ref(false);
+const invoiceCache = ref<Record<string, { amount: number; paid: boolean }>>({});
 
-const assetAccounts = computed(() => store.accounts.filter(a => ["checking", "savings", "cash"].includes(a.type)));
-const creditCards = computed(() => store.accounts.filter(a => a.type === "credit_card"));
-const investments = computed(() => store.accounts.filter(a => a.type === "investment"));
+const assetAccounts = computed(() => accounts.value.filter(a => ["checking", "savings", "cash"].includes(a.type)));
+const creditCards = computed(() => accounts.value.filter(a => a.type === "credit_card"));
+const investments = computed(() => accounts.value.filter(a => a.type === "investment"));
+const checkingAccounts = computed(() => accounts.value.filter(a => ["checking", "savings", "cash"].includes(a.type)));
+
+async function load() {
+  loading.value = true;
+  try {
+    const { data } = await api.get<(Account & { balance: number })[]>("/accounts", {
+      params: { month: monthStore.month, year: monthStore.year },
+    });
+    accounts.value = data;
+    // Carregar faturas dos cartões
+    for (const cc of data.filter(a => a.type === "credit_card")) {
+      await loadInvoice(cc.id);
+    }
+  } finally {
+    loading.value = false;
+  }
+}
+
+watch([() => monthStore.month, () => monthStore.year], load, { immediate: true });
 
 function fmt(v: number | string | null | undefined) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v ?? 0));
@@ -55,23 +77,48 @@ function pct(current: string, target: string | null) {
   return Math.min(100, (parseFloat(current) / parseFloat(target)) * 100);
 }
 
-const invoiceCache = ref<Record<string, { amount: number; paid: boolean }>>({});
-
 async function loadInvoice(accountId: number) {
   const key = `${accountId}-${monthStore.month}-${monthStore.year}`;
-  if (invoiceCache.value[key]) return;
   try {
     const { data } = await api.get(`/accounts/${accountId}/invoice`, { params: { month: monthStore.month, year: monthStore.year } });
     invoiceCache.value[key] = { amount: data.amount, paid: data.paid };
   } catch { /* ignore */ }
 }
 
-async function toggleInvoice(accountId: number) {
+function handleCardClick(cc: Account & { balance: number }) {
+  const key = `${cc.id}-${monthStore.month}-${monthStore.year}`;
+  const inv = invoiceCache.value[key];
+  if (inv?.paid) {
+    toggleInvoice(cc.id, null);
+  } else {
+    payingCard.value = { id: cc.id, name: cc.name, amount: inv?.amount ?? 0 };
+    payFromAccountId.value = String(checkingAccounts.value[0]?.id ?? "");
+    payDialog.value = true;
+  }
+}
+
+async function confirmPayment() {
+  if (!payingCard.value || !payFromAccountId.value) return;
+  paySubmitting.value = true;
   try {
-    await api.patch(`/accounts/${accountId}/invoice/pay`, { month: monthStore.month, year: monthStore.year });
+    await toggleInvoice(payingCard.value.id, parseInt(payFromAccountId.value));
+    payDialog.value = false;
+  } finally {
+    paySubmitting.value = false;
+  }
+}
+
+async function toggleInvoice(accountId: number, fromAccountId: number | null) {
+  try {
+    await api.patch(`/accounts/${accountId}/invoice/pay`, {
+      month: monthStore.month,
+      year: monthStore.year,
+      fromAccountId,
+    });
     const key = `${accountId}-${monthStore.month}-${monthStore.year}`;
     delete invoiceCache.value[key];
     await loadInvoice(accountId);
+    await load();
   } catch { error("Erro ao atualizar fatura"); }
 }
 
@@ -90,14 +137,18 @@ async function submit() {
       showProgress: form.value.showProgress,
     });
     showDialog.value = false;
+    await load();
     success("Conta criada");
   } catch { error("Erro ao criar conta"); }
   finally { submitting.value = false; }
 }
 
 async function remove(id: number) {
-  try { await store.deleteAccount(id); success("Conta removida"); }
-  catch { error("Erro ao remover"); }
+  try {
+    await store.deleteAccount(id);
+    await load();
+    success("Conta removida");
+  } catch { error("Erro ao remover"); }
 }
 </script>
 
@@ -113,7 +164,7 @@ async function remove(id: number) {
       </button>
     </div>
 
-    <template v-if="store.loading">
+    <template v-if="loading">
       <Skeleton class="h-16 w-full mb-2" v-for="i in 3" :key="i" />
     </template>
 
@@ -131,7 +182,7 @@ async function remove(id: number) {
               <p class="text-xs text-muted-foreground">{{ typeOptions.find(t => t.value === acc.type)?.label }}</p>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold" :class="Number(acc.balance) >= 0 ? 'text-emerald-400' : 'text-rose-400'">{{ fmt(acc.balance) }}</span>
+              <span class="text-sm font-semibold" :class="acc.balance >= 0 ? 'text-emerald-400' : 'text-rose-400'">{{ fmt(acc.balance) }}</span>
               <button type="button" @click="remove(acc.id)" class="opacity-0 group-hover:opacity-100 h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-all">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
               </button>
@@ -145,7 +196,7 @@ async function remove(id: number) {
         <p class="section-label">Cartões de crédito</p>
         <div class="rounded-xl border border-border bg-card overflow-hidden mb-5">
           <button v-for="(cc, i) in creditCards" :key="cc.id" type="button"
-            @click="toggleInvoice(cc.id)"
+            @click="handleCardClick(cc)"
             class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-secondary/50 transition-colors group"
             :class="{ 'border-t border-border': i > 0 }">
             <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" :style="{ background: (cc.color ?? '#8b5cf6') + '20', color: cc.color ?? '#8b5cf6' }">
@@ -198,7 +249,7 @@ async function remove(id: number) {
         </div>
       </template>
 
-      <div v-if="!store.accounts.length" class="flex flex-col items-center justify-center py-16 text-center">
+      <div v-if="!accounts.length" class="flex flex-col items-center justify-center py-16 text-center">
         <div class="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-3">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted-foreground">
             <rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>
@@ -208,6 +259,7 @@ async function remove(id: number) {
       </div>
     </template>
 
+    <!-- Dialog nova conta -->
     <Dialog :open="showDialog" title="Nova conta" @update:open="showDialog = $event">
       <div class="space-y-3">
         <div><label class="text-xs text-muted-foreground block mb-1">Nome</label>
@@ -239,6 +291,30 @@ async function remove(id: number) {
           <button type="button" @click="submit" :disabled="submitting || !form.name" class="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
             <svg v-if="submitting" class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
             Criar conta
+          </button>
+        </div>
+      </div>
+    </Dialog>
+
+    <!-- Dialog pagamento de fatura -->
+    <Dialog :open="payDialog" :title="`Pagar fatura — ${payingCard?.name}`" @update:open="payDialog = $event">
+      <div class="space-y-4">
+        <div class="rounded-lg bg-secondary/60 px-4 py-3 flex justify-between items-center">
+          <span class="text-sm text-muted-foreground">Valor da fatura</span>
+          <span class="text-lg font-bold text-rose-400">{{ fmt(payingCard?.amount ?? 0) }}</span>
+        </div>
+        <div>
+          <label class="text-xs text-muted-foreground block mb-1">Pagar de qual conta?</label>
+          <select v-model="payFromAccountId" :class="selectClass">
+            <option v-for="acc in checkingAccounts" :key="acc.id" :value="String(acc.id)">{{ acc.name }}</option>
+          </select>
+        </div>
+        <p class="text-xs text-muted-foreground">O valor será lançado como transferência saindo da conta selecionada.</p>
+        <div class="flex gap-2 pt-1">
+          <button type="button" @click="payDialog = false" class="flex-1 h-9 rounded-lg border border-border text-sm text-foreground hover:bg-secondary transition-colors">Cancelar</button>
+          <button type="button" @click="confirmPayment" :disabled="paySubmitting || !payFromAccountId" class="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+            <svg v-if="paySubmitting" class="animate-spin size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            Confirmar pagamento
           </button>
         </div>
       </div>

@@ -18,7 +18,9 @@ router.use(requireAuth);
 router.get(
   "/",
   asyncHandler(async (req: AuthRequest, res) => {
-    res.json(await listAccountsWithBalances(req.userId!));
+    const month = parseInt(req.query.month as string) || new Date().getMonth() + 1;
+    const year  = parseInt(req.query.year  as string) || new Date().getFullYear();
+    res.json(await listAccountsWithBalances(req.userId!, month, year));
   })
 );
 
@@ -81,9 +83,10 @@ router.patch(
     const parsed = z.object({
       month: z.coerce.number().int().min(1).max(12),
       year: z.coerce.number().int().min(2000),
+      fromAccountId: z.number().int().positive().optional().nullable(),
     }).safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "month e year são obrigatórios" }); return; }
-    const result = await toggleInvoicePaid(req.userId!, id, parsed.data.month, parsed.data.year);
+    const result = await toggleInvoicePaid(req.userId!, id, parsed.data.month, parsed.data.year, parsed.data.fromAccountId ?? null);
     res.json(result);
   })
 );
