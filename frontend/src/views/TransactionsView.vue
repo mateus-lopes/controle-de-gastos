@@ -103,6 +103,26 @@ const typeColor: Record<string, string> = {
   expense: "bg-rose-500/15 text-rose-400",
   transfer: "bg-blue-500/15 text-blue-400",
 };
+
+const regularTransactions = computed(() => transactions.value.filter(tx => !tx.isCarryOver));
+
+const liquidAccounts = computed(() =>
+  accountsStore.accounts.filter(a => ["checking", "savings", "cash"].includes(a.type))
+);
+
+const adjustmentRows = computed(() =>
+  liquidAccounts.value.map(account => {
+    const tx = transactions.value.find(
+      tx => tx.isCarryOver && (tx.fromAccount?.id === account.id || tx.toAccount?.id === account.id)
+    );
+    return {
+      account,
+      amount: tx ? Number(tx.amount) : 0,
+      positive: tx?.type === "income",
+      hasValue: !!tx,
+    };
+  })
+);
 </script>
 
 <template>
@@ -124,59 +144,86 @@ const typeColor: Record<string, string> = {
       <Skeleton class="h-16 w-full mb-2" v-for="i in 5" :key="i" />
     </template>
 
-    <template v-else-if="transactions.length">
-      <div class="rounded-xl border border-border bg-card overflow-hidden">
-        <div
-          v-for="(tx, i) in transactions"
-          :key="tx.id"
-          class="flex items-center gap-3 px-4 py-3 group"
-          :class="[{ 'border-t border-border': i > 0 }, tx.isCarryOver ? 'bg-secondary/20' : '']"
-        >
-          <div :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', typeColor[tx.type]]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="typeIcon[tx.type]" />
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-foreground truncate">{{ tx.description }}</p>
-            <div class="flex items-center gap-1.5 mt-0.5">
-              <span v-if="tx.fromAccount" class="text-xs text-muted-foreground">{{ tx.fromAccount.name }}</span>
-              <span v-else-if="tx.toAccount" class="text-xs text-muted-foreground">{{ tx.toAccount.name }}</span>
-              <span v-if="tx.fromAccount && tx.toAccount" class="text-xs text-muted-foreground">→ {{ tx.toAccount.name }}</span>
-              <span
-                v-if="tx.category"
-                class="text-xs px-1.5 py-0.5 rounded-full border"
-                :style="{ color: tx.category.color ?? '#8b5cf6', borderColor: (tx.category.color ?? '#8b5cf6') + '40', background: (tx.category.color ?? '#8b5cf6') + '15' }"
-              >{{ tx.category.name }}</span>
-            </div>
-          </div>
-          <div class="flex flex-col items-end gap-1">
-            <span class="text-sm font-semibold" :class="tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-rose-400' : 'text-blue-400'">
-              {{ tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : '' }}{{ new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(tx.amount)) }}
-            </span>
-            <span class="text-xs text-muted-foreground">{{ fmtDate(tx.date) }}</span>
-          </div>
-          <button
-            v-if="!tx.isCarryOver"
-            type="button"
-            @click="remove(tx.id)"
-            class="ml-1 opacity-0 group-hover:opacity-100 h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+    <template v-else>
+      <!-- Ajuste mensal -->
+      <template v-if="liquidAccounts.length">
+        <p class="section-label mb-2">Ajuste mensal</p>
+        <div class="rounded-xl border border-border bg-card overflow-hidden mb-4">
+          <div
+            v-for="(row, i) in adjustmentRows"
+            :key="row.account.id"
+            class="flex items-center gap-3 px-4 py-3"
+            :class="{ 'border-t border-border': i > 0 }"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
-            </svg>
-          </button>
-          <div v-else class="ml-1 w-7" />
+            <div class="w-2 h-2 rounded-full flex-shrink-0" :style="{ backgroundColor: row.account.color ?? '#94a3b8' }" />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-foreground">{{ row.account.name }}</p>
+              <p class="text-xs text-muted-foreground">Saldo anterior</p>
+            </div>
+            <span
+              class="text-sm font-semibold tabular-nums"
+              :class="!row.hasValue ? 'text-muted-foreground' : row.positive ? 'text-emerald-400' : 'text-rose-400'"
+            >
+              {{ !row.hasValue ? 'R$ 0,00' : (row.positive ? '+' : '-') + fmt(row.amount) }}
+            </span>
+          </div>
         </div>
+      </template>
+
+      <!-- Transações do mês -->
+      <template v-if="regularTransactions.length">
+        <p class="section-label mb-2">Transações</p>
+        <div class="rounded-xl border border-border bg-card overflow-hidden">
+          <div
+            v-for="(tx, i) in regularTransactions"
+            :key="tx.id"
+            class="flex items-center gap-3 px-4 py-3 group"
+            :class="{ 'border-t border-border': i > 0 }"
+          >
+            <div :class="['w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', typeColor[tx.type]]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="typeIcon[tx.type]" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-foreground truncate">{{ tx.description }}</p>
+              <div class="flex items-center gap-1.5 mt-0.5">
+                <span v-if="tx.fromAccount" class="text-xs text-muted-foreground">{{ tx.fromAccount.name }}</span>
+                <span v-else-if="tx.toAccount" class="text-xs text-muted-foreground">{{ tx.toAccount.name }}</span>
+                <span v-if="tx.fromAccount && tx.toAccount" class="text-xs text-muted-foreground">→ {{ tx.toAccount.name }}</span>
+                <span
+                  v-if="tx.category"
+                  class="text-xs px-1.5 py-0.5 rounded-full border"
+                  :style="{ color: tx.category.color ?? '#8b5cf6', borderColor: (tx.category.color ?? '#8b5cf6') + '40', background: (tx.category.color ?? '#8b5cf6') + '15' }"
+                >{{ tx.category.name }}</span>
+              </div>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <span class="text-sm font-semibold tabular-nums" :class="tx.type === 'income' ? 'text-emerald-400' : tx.type === 'expense' ? 'text-rose-400' : 'text-blue-400'">
+                {{ tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : '' }}{{ fmt(tx.amount) }}
+              </span>
+              <span class="text-xs text-muted-foreground">{{ fmtDate(tx.date) }}</span>
+            </div>
+            <button
+              type="button"
+              @click="remove(tx.id)"
+              class="ml-1 opacity-0 group-hover:opacity-100 h-7 w-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </template>
+
+      <div v-if="!liquidAccounts.length && !regularTransactions.length" class="flex flex-col items-center justify-center py-20 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-3">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted-foreground">
+            <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
+          </svg>
+        </div>
+        <p class="text-sm text-muted-foreground">Nenhuma transação neste mês</p>
       </div>
     </template>
-
-    <div v-else class="flex flex-col items-center justify-center py-20 text-center">
-      <div class="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-3">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted-foreground">
-          <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
-        </svg>
-      </div>
-      <p class="text-sm text-muted-foreground">Nenhuma transação neste mês</p>
-    </div>
 
     <!-- Dialog nova transação -->
     <Dialog :open="showDialog" title="Nova transação" @update:open="showDialog = $event">
