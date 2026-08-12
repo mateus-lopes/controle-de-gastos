@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useMonthStore } from "../stores/month";
 import Skeleton from "../components/ui/Skeleton.vue";
+import MonthNavigator from "../components/MonthNavigator.vue";
 import api from "../services/api";
 
 const monthStore = useMonthStore();
@@ -60,7 +61,7 @@ async function load() {
   loading.value = false;
 }
 
-onMounted(load);
+watch([() => monthStore.month, () => monthStore.year], load, { immediate: true });
 
 // ── Mês atual ──────────────────────────────────────────────────────────────
 const curSnap   = computed(() => months.value[months.value.length - 1]);
@@ -320,6 +321,8 @@ const incomeChart = computed(() => ({
 
 <template>
   <div class="page space-y-5">
+
+    <div class="lg:hidden mb-1"><MonthNavigator /></div>
 
     <template v-if="loading">
       <Skeleton class="h-36 w-full rounded-xl" />

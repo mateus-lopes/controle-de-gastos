@@ -27,7 +27,7 @@ const PAGE_TITLES: Record<string, string> = {
       <!-- Header -->
       <header class="sticky top-0 z-40 h-16 bg-card/95 backdrop-blur-sm border-b border-border flex items-center justify-between px-6 gap-4">
         <h1 class="text-base font-semibold text-foreground">{{ PAGE_TITLES[route.path] ?? "Controle Financeiro" }}</h1>
-        <MonthNavigator v-if="auth.isAuthenticated && route.path !== '/analise-gastos' && route.path !== '/categorias'" />
+        <MonthNavigator v-if="auth.isAuthenticated && route.path !== '/categorias'" />
         <div class="flex items-center gap-2">
           <button
             type="button"
