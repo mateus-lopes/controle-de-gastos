@@ -38,12 +38,13 @@ async function seed() {
   await db.delete(categories).where(eq(categories.userId, uid));
 
   // ---- Accounts ----
-  const [bbCorrente, bbCredito, brad2397, brad2415, bradCorrente, carteira, interMariana, aptFerias] = await db.insert(accounts).values([
+  const [bbCorrente, bbCredito, brad2397, brad2415, bradCorrente, havanCard, carteira, interMariana, aptFerias] = await db.insert(accounts).values([
     { userId: uid, name: "BB Corrente",        type: "checking",    color: "#facc15" },
     { userId: uid, name: "BB Crédito 1000",    type: "credit_card", color: "#60a5fa" },
     { userId: uid, name: "Bradesco 2397",       type: "credit_card", color: "#fb923c" },
     { userId: uid, name: "Bradesco 2415",       type: "credit_card", color: "#f43f5e" },
     { userId: uid, name: "Bradesco Corrente",   type: "checking",    color: "#10b981" },
+    { userId: uid, name: "Havan",               type: "credit_card", color: "#ef4444" },
     { userId: uid, name: "Carteira",            type: "cash",        color: "#a3e635" },
     { userId: uid, name: "Inter (Mariana)",     type: "checking",    color: "#f97316" },
     { userId: uid, name: "Apartamento Férias",  type: "investment",  color: "#34d399", currentAmount: "0", showProgress: false },
@@ -72,7 +73,7 @@ async function seed() {
     { userId: uid, name: "Mariana fixo",     type: "income",   amount: "1000",    frequency: "monthly", startDate: start, toAccountId: interMariana.id },
     // Parcelas
     { userId: uid, name: "HB20 (23x)",           type: "expense", amount: "1453.42", frequency: "monthly", startDate: "2026-09-10", endDate: "2028-06-30", fromAccountId: bbCorrente.id },
-    { userId: uid, name: "Havan (9x)",            type: "expense", amount: "228.85",  frequency: "monthly", startDate: "2026-09-10", endDate: "2027-04-30", fromAccountId: bbCorrente.id },
+    { userId: uid, name: "Havan (9x)",            type: "expense", amount: "228.85",  frequency: "monthly", startDate: "2026-09-10", endDate: "2027-04-30", fromAccountId: havanCard.id },
     { userId: uid, name: "Apartamento (4x)",      type: "expense", amount: "300",     frequency: "monthly", startDate: start, endDate: "2026-11-30", fromAccountId: bbCorrente.id, categoryId: cCasa.id },
     { userId: uid, name: "Dentista Mariana (19x)",type: "expense", amount: "256",     frequency: "monthly", startDate: start, endDate: "2028-02-29", fromAccountId: bbCorrente.id, categoryId: cSaude.id },
     // Fixas mensais
@@ -91,7 +92,7 @@ async function seed() {
   ]);
 
   console.log("✅ Seed Mateus completo:");
-  console.log("   → 8 contas | 9 categorias | 13 recorrentes | 1 transação de fechamento agosto");
+  console.log("   → 9 contas | 9 categorias | 14 recorrentes | 1 transação de fechamento agosto");
   console.log("   → Login: mateusalbano22@gmail.com / c7t?Waw4D6");
 
   await seedThiago(hash);
