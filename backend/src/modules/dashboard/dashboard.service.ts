@@ -1,11 +1,72 @@
-import { eq, and, sum, inArray, or, lt } from "drizzle-orm";
+import { eq, and, sum, inArray, asc } from "drizzle-orm";
 import { db } from "../../db/client";
 import { transactions, bills, billOccurrences, accounts, categories } from "../../db/schema";
 import { ensureOccurrencesForMonth } from "../bills/bills.service";
 import { getAllInvoicesForMonth } from "../accounts/accounts.service";
 
+function prevMonthYear(month: number, year: number) {
+  return month === 1 ? { month: 12, year: year - 1 } : { month: month - 1, year };
+}
+
+async function getMonthSaldo(userId: number, month: number, year: number): Promise<number> {
+  const [txInc, txExp, billInc, billExp] = await Promise.all([
+    db.select({ total: sum(transactions.amount) }).from(transactions)
+      .where(and(eq(transactions.userId, userId), eq(transactions.month, month), eq(transactions.year, year), eq(transactions.type, "income"))),
+    db.select({ total: sum(transactions.amount) }).from(transactions)
+      .where(and(eq(transactions.userId, userId), eq(transactions.month, month), eq(transactions.year, year), eq(transactions.type, "expense"))),
+    db.select({ total: sum(billOccurrences.amount) }).from(billOccurrences)
+      .innerJoin(bills, eq(billOccurrences.billId, bills.id))
+      .where(and(eq(billOccurrences.userId, userId), eq(billOccurrences.month, month), eq(billOccurrences.year, year), eq(billOccurrences.paid, true), eq(bills.type, "income"))),
+    db.select({ total: sum(billOccurrences.amount) }).from(billOccurrences)
+      .innerJoin(bills, eq(billOccurrences.billId, bills.id))
+      .where(and(eq(billOccurrences.userId, userId), eq(billOccurrences.month, month), eq(billOccurrences.year, year), eq(billOccurrences.paid, true), eq(bills.type, "expense"))),
+  ]);
+  const income = parseFloat(txInc[0]?.total ?? "0") + parseFloat(billInc[0]?.total ?? "0");
+  const expense = parseFloat(txExp[0]?.total ?? "0") + parseFloat(billExp[0]?.total ?? "0");
+  return income - expense;
+}
+
+async function upsertCarryOverTransaction(userId: number, month: number, year: number, prevSaldo: number) {
+  // Find first checking account for this user
+  const [checkingAccount] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.userId, userId), eq(accounts.type, "checking"), eq(accounts.active, true)))
+    .orderBy(asc(accounts.id))
+    .limit(1);
+
+  // Delete existing carry-over tx for this month
+  await db.delete(transactions).where(
+    and(eq(transactions.userId, userId), eq(transactions.month, month), eq(transactions.year, year), eq(transactions.isCarryOver, true))
+  );
+
+  if (prevSaldo === 0 || !checkingAccount) return;
+
+  const mm = String(month).padStart(2, "0");
+  const type = prevSaldo > 0 ? "income" : "expense";
+  const amount = String(Math.abs(prevSaldo).toFixed(2));
+
+  await db.insert(transactions).values({
+    userId,
+    type,
+    fromAccountId: null,
+    toAccountId: checkingAccount.id,
+    amount,
+    date: `${year}-${mm}-01`,
+    month,
+    year,
+    description: "Saldo anterior",
+    isCarryOver: true,
+  });
+}
+
 export async function getDashboard(userId: number, month: number, year: number) {
   await ensureOccurrencesForMonth(userId, month, year);
+
+  // Compute previous month's saldo and upsert carry-over transaction
+  const prev = prevMonthYear(month, year);
+  const prevSaldo = await getMonthSaldo(userId, prev.month, prev.year);
+  await upsertCarryOverTransaction(userId, month, year, prevSaldo);
 
   const [
     txIncomeResult,
@@ -17,8 +78,6 @@ export async function getDashboard(userId: number, month: number, year: number) 
     investments,
     creditCardInvoices,
     investmentBillOccs,
-    carryOverIncomeResult,
-    carryOverExpenseResult,
   ] = await Promise.all([
     db
       .select({ total: sum(transactions.amount) })
@@ -88,24 +147,6 @@ export async function getDashboard(userId: number, month: number, year: number) 
         eq(billOccurrences.year, year),
         eq(bills.type, "transfer")
       )),
-
-    db
-      .select({ total: sum(transactions.amount) })
-      .from(transactions)
-      .where(and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "income"),
-        or(lt(transactions.year, year), and(eq(transactions.year, year), lt(transactions.month, month)))
-      )),
-
-    db
-      .select({ total: sum(transactions.amount) })
-      .from(transactions)
-      .where(and(
-        eq(transactions.userId, userId),
-        eq(transactions.type, "expense"),
-        or(lt(transactions.year, year), and(eq(transactions.year, year), lt(transactions.month, month)))
-      )),
   ]);
 
   const totalTxIncome = parseFloat(txIncomeResult[0]?.total ?? "0");
@@ -123,10 +164,6 @@ export async function getDashboard(userId: number, month: number, year: number) 
   const pendingBillIncome = pendingOccurrences
     .filter(({ bill }) => bill.type === "income")
     .reduce((acc, { occ }) => acc + parseFloat(occ.amount), 0);
-
-  const carryOver =
-    parseFloat(carryOverIncomeResult[0]?.total ?? "0") -
-    parseFloat(carryOverExpenseResult[0]?.total ?? "0");
 
   const categoryIds = [...new Set(txRows.map((r) => r.categoryId).filter(Boolean) as number[])];
   const cats = categoryIds.length
@@ -168,7 +205,7 @@ export async function getDashboard(userId: number, month: number, year: number) 
     totalIncome,
     totalExpenses,
     saldo,
-    carryOver,
+    carryOver: prevSaldo,
     breakdown: {
       transactionIncome: totalTxIncome,
       billIncome: totalBillIncome,

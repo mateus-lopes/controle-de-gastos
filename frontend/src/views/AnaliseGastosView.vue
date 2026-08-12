@@ -67,7 +67,13 @@ const curSnap   = computed(() => months.value[months.value.length - 1]);
 
 // ── Comprometimento ─────────────────────────────────────────────────────────
 const committed     = computed(() => (curSnap.value?.breakdown.billExpense ?? 0) + (curSnap.value?.breakdown.pendingBillExpense ?? 0));
-const freeToSpend   = computed(() => (curSnap.value?.totalIncome ?? 0) - committed.value + (curSnap.value?.carryOver ?? 0));
+const freeToSpend   = computed(() => {
+  const income = curSnap.value?.totalIncome ?? 0;
+  const carry = curSnap.value?.carryOver ?? 0;
+  // Positive carry-over already included in totalIncome (income transaction).
+  // Negative carry-over is in totalExpenses (expense tx) but not in committed, so deduct it here.
+  return income - committed.value + Math.min(0, carry);
+});
 const commitmentPct = computed(() => {
   if (!curSnap.value?.totalIncome) return 0;
   return Math.min(100, (committed.value / curSnap.value.totalIncome) * 100);

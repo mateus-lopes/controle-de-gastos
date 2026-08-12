@@ -39,6 +39,7 @@ export async function listTransactions(
       description: transactions.description,
       notes: transactions.notes,
       reconciled: transactions.reconciled,
+      isCarryOver: transactions.isCarryOver,
       billId: transactions.billId,
       createdAt: transactions.createdAt,
       fromAccountId: transactions.fromAccountId,
