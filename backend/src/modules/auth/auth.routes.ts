@@ -2,7 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { asyncHandler } from "../../lib/asyncHandler";
 import { requireAuth, type AuthRequest } from "../../middlewares/auth";
-import { login, getMe, loginSchema } from "./auth.service";
+import { login, getMe, loginSchema, resetPassword } from "./auth.service";
 import { env } from "../../config/env";
 
 const router = Router();
@@ -38,6 +38,23 @@ router.post(
 
     res.cookie("auth_token", result.token, COOKIE_OPTIONS);
     res.json({ user: result.user });
+  })
+);
+
+router.post(
+  "/reset-password",
+  asyncHandler(async (req, res) => {
+    const { adminPassword, email, newPassword } = req.body;
+    if (!adminPassword || !email || !newPassword) {
+      res.status(400).json({ error: "Campos obrigatórios ausentes" });
+      return;
+    }
+    const result = await resetPassword(adminPassword, email, newPassword);
+    if (!result.ok) {
+      res.status(401).json({ error: result.error });
+      return;
+    }
+    res.json({ ok: true });
   })
 );
 

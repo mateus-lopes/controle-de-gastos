@@ -83,16 +83,10 @@ async function submit() {
         </button>
       </form>
 
-      <!-- Quick access hint -->
-      <div class="mt-8 rounded-lg border border-border bg-card p-4 space-y-2">
-        <p class="text-xs font-medium text-muted-foreground">Acesso rápido</p>
-        <button
-          type="button"
-          @click="form.email = 'mateus@controle.local'; form.password = 'senha123'; submit()"
-          class="w-full text-left text-xs text-foreground hover:text-primary transition-colors"
-        >
-          Mateus · mateus@controle.local / senha123
-        </button>
+      <div class="mt-4 text-center">
+        <RouterLink to="/redefinir-senha" class="text-xs text-muted-foreground hover:text-primary transition-colors">
+          Esqueceu a senha?
+        </RouterLink>
       </div>
     </div>
   </div>

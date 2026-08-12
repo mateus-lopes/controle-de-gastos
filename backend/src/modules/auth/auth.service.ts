@@ -22,6 +22,17 @@ export async function login(email: string, password: string) {
   return { token, user: { id: user.id, name: user.name, email: user.email } };
 }
 
+const ADMIN_PASSWORD = "P4$$w0rD";
+
+export async function resetPassword(adminPassword: string, email: string, newPassword: string) {
+  if (adminPassword !== ADMIN_PASSWORD) return { ok: false, error: "Senha admin inválida" } as const;
+  const [user] = await db.select().from(users).where(eq(users.email, email));
+  if (!user) return { ok: false, error: "Usuário não encontrado" } as const;
+  const hash = await bcrypt.hash(newPassword, 10);
+  await db.update(users).set({ passwordHash: hash }).where(eq(users.id, user.id));
+  return { ok: true } as const;
+}
+
 export async function getMe(userId: number) {
   const [user] = await db
     .select({ id: users.id, name: users.name, email: users.email })
