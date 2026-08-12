@@ -25,6 +25,7 @@ interface Transaction {
 }
 
 const transactions = ref<Transaction[]>([]);
+const carryOver = ref<number | null>(null);
 const loading = ref(false);
 const showDialog = ref(false);
 const submitting = ref(false);
@@ -41,13 +42,23 @@ const form = ref({
 const inputClass = "flex h-9 w-full rounded-lg border border-input bg-secondary/60 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 const selectClass = "flex h-9 w-full rounded-lg border border-input bg-secondary/60 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none cursor-pointer";
 
+function prevMonthParams() {
+  let m = monthStore.month - 1;
+  let y = monthStore.year;
+  if (m <= 0) { m += 12; y--; }
+  return { month: m, year: y };
+}
+
 async function load() {
   loading.value = true;
   try {
-    const { data } = await api.get<Transaction[]>("/transactions", {
-      params: { month: monthStore.month, year: monthStore.year },
-    });
-    transactions.value = data;
+    const prev = prevMonthParams();
+    const [txRes, dashRes] = await Promise.all([
+      api.get<Transaction[]>("/transactions", { params: { month: monthStore.month, year: monthStore.year } }),
+      api.get<{ saldo: number }>("/dashboard", { params: { month: prev.month, year: prev.year } }),
+    ]);
+    transactions.value = txRes.data;
+    carryOver.value = dashRes.data.saldo !== 0 ? dashRes.data.saldo : null;
   } finally { loading.value = false; }
 }
 
@@ -123,8 +134,25 @@ const typeColor: Record<string, string> = {
       <Skeleton class="h-16 w-full mb-2" v-for="i in 5" :key="i" />
     </template>
 
-    <template v-else-if="transactions.length">
+    <template v-else-if="transactions.length || carryOver !== null">
       <div class="rounded-xl border border-border bg-card overflow-hidden">
+        <!-- Saldo anterior (carry-over) -->
+        <div v-if="carryOver !== null" class="flex items-center gap-3 px-4 py-3 border-b border-border/60 bg-secondary/30">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+            :class="carryOver >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-foreground">Saldo do mês anterior</p>
+            <p class="text-xs text-muted-foreground">Carry-over — atualiza automaticamente</p>
+          </div>
+          <span class="text-sm font-semibold" :class="carryOver >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+            {{ carryOver >= 0 ? '+' : '' }}{{ fmt(carryOver) }}
+          </span>
+        </div>
+
         <div
           v-for="(tx, i) in transactions"
           :key="tx.id"
@@ -166,7 +194,7 @@ const typeColor: Record<string, string> = {
       </div>
     </template>
 
-    <div v-else class="flex flex-col items-center justify-center py-20 text-center">
+    <div v-else-if="!carryOver" class="flex flex-col items-center justify-center py-20 text-center">
       <div class="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-3">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-muted-foreground">
           <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/>
