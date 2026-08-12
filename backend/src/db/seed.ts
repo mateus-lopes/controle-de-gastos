@@ -62,7 +62,7 @@ async function seed() {
     { userId: uid, name: "Roupas",      color: "#f43f5e" },
   ]).returning();
 
-  const start = "2026-08-01";
+  const start = "2026-09-01";
 
   // ---- Bills ----
   await db.insert(bills).values([
@@ -71,8 +71,8 @@ async function seed() {
     { userId: uid, name: "Michel (9x)",      type: "income",   amount: "160",     frequency: "monthly", startDate: start, endDate: "2027-04-30", toAccountId: bbCorrente.id },
     { userId: uid, name: "Mariana fixo",     type: "income",   amount: "1000",    frequency: "monthly", startDate: start, toAccountId: interMariana.id },
     // Parcelas
-    { userId: uid, name: "HB20 (23x)",           type: "expense", amount: "1453.42", frequency: "monthly", startDate: start, endDate: "2028-06-30", fromAccountId: bbCorrente.id },
-    { userId: uid, name: "Havan (9x)",            type: "expense", amount: "228.85",  frequency: "monthly", startDate: start, endDate: "2027-04-30", fromAccountId: bbCorrente.id },
+    { userId: uid, name: "HB20 (23x)",           type: "expense", amount: "1453.42", frequency: "monthly", startDate: "2026-09-10", endDate: "2028-06-30", fromAccountId: bbCorrente.id },
+    { userId: uid, name: "Havan (9x)",            type: "expense", amount: "228.85",  frequency: "monthly", startDate: "2026-09-10", endDate: "2027-04-30", fromAccountId: bbCorrente.id },
     { userId: uid, name: "Apartamento (4x)",      type: "expense", amount: "300",     frequency: "monthly", startDate: start, endDate: "2026-11-30", fromAccountId: bbCorrente.id, categoryId: cCasa.id },
     { userId: uid, name: "Dentista Mariana (19x)",type: "expense", amount: "256",     frequency: "monthly", startDate: start, endDate: "2028-02-29", fromAccountId: bbCorrente.id, categoryId: cSaude.id },
     // Fixas mensais
@@ -84,16 +84,13 @@ async function seed() {
     { userId: uid, name: "Anuidade 2397",     type: "expense", amount: "50",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cAssinaturas.id },
   ]);
 
-  // ---- Saldo atual agosto 2026 ----
+  // ---- Agosto encerrado: uma transação representando o saldo real do BB ----
   await db.insert(transactions).values([
-    { userId: uid, type: "expense", amount: "838.03",  date: "2026-08-01", month: 8, year: 2026, description: "Saldo anterior agosto",   fromAccountId: bbCorrente.id, toAccountId: null, categoryId: null },
-    { userId: uid, type: "expense", amount: "1834.84", date: "2026-08-01", month: 8, year: 2026, description: "Saldo fatura agosto",      fromAccountId: bbCredito.id,  toAccountId: null, categoryId: null },
-    { userId: uid, type: "expense", amount: "173.39",  date: "2026-08-01", month: 8, year: 2026, description: "Saldo fatura agosto",      fromAccountId: brad2397.id,   toAccountId: null, categoryId: null },
-    { userId: uid, type: "expense", amount: "26.00",   date: "2026-08-01", month: 8, year: 2026, description: "Saldo fatura agosto",      fromAccountId: brad2415.id,   toAccountId: null, categoryId: null },
+    { userId: uid, type: "expense", amount: "838.03", date: "2026-08-31", month: 8, year: 2026, description: "Saldo agosto (encerrado)", fromAccountId: bbCorrente.id, toAccountId: null, categoryId: null },
   ]);
 
   console.log("✅ Seed Mateus completo:");
-  console.log("   → 8 contas | 9 categorias | 13 recorrentes | 4 transações de abertura");
+  console.log("   → 8 contas | 9 categorias | 13 recorrentes | 1 transação de fechamento agosto");
   console.log("   → Login: mateusalbano22@gmail.com / c7t?Waw4D6");
 
   await seedThiago(hash);
