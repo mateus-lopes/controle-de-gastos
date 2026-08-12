@@ -1,4 +1,4 @@
-import { eq, and, sum, inArray } from "drizzle-orm";
+import { eq, and, sum, inArray, or, lt } from "drizzle-orm";
 import { db } from "../../db/client";
 import { transactions, bills, billOccurrences, accounts, categories } from "../../db/schema";
 import { ensureOccurrencesForMonth } from "../bills/bills.service";
@@ -17,6 +17,8 @@ export async function getDashboard(userId: number, month: number, year: number) 
     investments,
     creditCardInvoices,
     investmentBillOccs,
+    carryOverIncomeResult,
+    carryOverExpenseResult,
   ] = await Promise.all([
     db
       .select({ total: sum(transactions.amount) })
@@ -86,6 +88,24 @@ export async function getDashboard(userId: number, month: number, year: number) 
         eq(billOccurrences.year, year),
         eq(bills.type, "transfer")
       )),
+
+    db
+      .select({ total: sum(transactions.amount) })
+      .from(transactions)
+      .where(and(
+        eq(transactions.userId, userId),
+        eq(transactions.type, "income"),
+        or(lt(transactions.year, year), and(eq(transactions.year, year), lt(transactions.month, month)))
+      )),
+
+    db
+      .select({ total: sum(transactions.amount) })
+      .from(transactions)
+      .where(and(
+        eq(transactions.userId, userId),
+        eq(transactions.type, "expense"),
+        or(lt(transactions.year, year), and(eq(transactions.year, year), lt(transactions.month, month)))
+      )),
   ]);
 
   const totalTxIncome = parseFloat(txIncomeResult[0]?.total ?? "0");
@@ -96,6 +116,17 @@ export async function getDashboard(userId: number, month: number, year: number) 
   const totalIncome = totalTxIncome + totalBillIncome;
   const totalExpenses = totalTxExpense + totalBillExpense;
   const saldo = totalIncome - totalExpenses;
+
+  const pendingBillExpense = pendingOccurrences
+    .filter(({ bill }) => bill.type === "expense")
+    .reduce((acc, { occ }) => acc + parseFloat(occ.amount), 0);
+  const pendingBillIncome = pendingOccurrences
+    .filter(({ bill }) => bill.type === "income")
+    .reduce((acc, { occ }) => acc + parseFloat(occ.amount), 0);
+
+  const carryOver =
+    parseFloat(carryOverIncomeResult[0]?.total ?? "0") -
+    parseFloat(carryOverExpenseResult[0]?.total ?? "0");
 
   const categoryIds = [...new Set(txRows.map((r) => r.categoryId).filter(Boolean) as number[])];
   const cats = categoryIds.length
@@ -137,11 +168,14 @@ export async function getDashboard(userId: number, month: number, year: number) 
     totalIncome,
     totalExpenses,
     saldo,
+    carryOver,
     breakdown: {
       transactionIncome: totalTxIncome,
       billIncome: totalBillIncome,
       transactionExpense: totalTxExpense,
       billExpense: totalBillExpense,
+      pendingBillExpense,
+      pendingBillIncome,
     },
     categoriesBreakdown,
     creditCards: creditCardInvoices,

@@ -158,7 +158,7 @@ const pieOptions = computed(() => {
         <p class="text-3xl font-bold mb-3" :class="data.saldo >= 0 ? 'text-emerald-400' : 'text-rose-400'">
           {{ fmt(data.saldo) }}
         </p>
-        <div class="flex gap-4">
+        <div class="flex gap-4 flex-wrap">
           <div>
             <p class="text-xs text-muted-foreground">Receitas</p>
             <p class="text-sm font-semibold text-emerald-400">+{{ fmtShort(data.totalIncome) }}</p>
@@ -168,6 +168,15 @@ const pieOptions = computed(() => {
             <p class="text-xs text-muted-foreground">Despesas</p>
             <p class="text-sm font-semibold text-rose-400">-{{ fmtShort(data.totalExpenses) }}</p>
           </div>
+          <template v-if="data.carryOver !== 0">
+            <div class="w-px bg-white/10" />
+            <div>
+              <p class="text-xs text-muted-foreground">Anterior</p>
+              <p class="text-sm font-semibold" :class="data.carryOver >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+                {{ data.carryOver >= 0 ? '+' : '' }}{{ fmtShort(data.carryOver) }}
+              </p>
+            </div>
+          </template>
         </div>
       </div>
 

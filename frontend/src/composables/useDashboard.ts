@@ -39,6 +39,7 @@ export interface DashboardData {
   totalIncome: number;
   totalExpenses: number;
   saldo: number;
+  carryOver: number;
   categoriesBreakdown: {
     categoryId: number;
     categoryName: string | null;
@@ -53,6 +54,8 @@ export interface DashboardData {
     billIncome: number;
     transactionExpense: number;
     billExpense: number;
+    pendingBillExpense: number;
+    pendingBillIncome: number;
   };
 }
 

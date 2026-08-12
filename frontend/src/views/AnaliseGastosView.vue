@@ -12,7 +12,8 @@ const MONTH_NAMES = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out"
 interface MonthSnap {
   month: number; year: number;
   totalIncome: number; totalExpenses: number; saldo: number;
-  breakdown: { billExpense: number; transactionExpense: number; billIncome: number; transactionIncome: number };
+  carryOver: number;
+  breakdown: { billExpense: number; transactionExpense: number; billIncome: number; transactionIncome: number; pendingBillExpense: number; pendingBillIncome: number };
   creditCards: { account: { id: number; name: string; color: string | null }; amount: number; paid: boolean }[];
 }
 interface BillRow {
@@ -45,7 +46,7 @@ async function load() {
     params.map(({ m, y }) =>
       api.get("/dashboard", { params: { month: m, year: y } })
         .then(r => r.data as MonthSnap)
-        .catch(() => ({ month: m, year: y, totalIncome: 0, totalExpenses: 0, saldo: 0, breakdown: { billExpense: 0, transactionExpense: 0, billIncome: 0, transactionIncome: 0 }, creditCards: [] }))
+        .catch(() => ({ month: m, year: y, totalIncome: 0, totalExpenses: 0, saldo: 0, carryOver: 0, breakdown: { billExpense: 0, transactionExpense: 0, billIncome: 0, transactionIncome: 0, pendingBillExpense: 0, pendingBillIncome: 0 }, creditCards: [] }))
     )
   );
   months.value = snaps;
@@ -65,8 +66,8 @@ onMounted(load);
 const curSnap   = computed(() => months.value[months.value.length - 1]);
 
 // ── Comprometimento ─────────────────────────────────────────────────────────
-const committed     = computed(() => curSnap.value?.breakdown.billExpense ?? 0);
-const freeToSpend   = computed(() => (curSnap.value?.totalIncome ?? 0) - committed.value);
+const committed     = computed(() => (curSnap.value?.breakdown.billExpense ?? 0) + (curSnap.value?.breakdown.pendingBillExpense ?? 0));
+const freeToSpend   = computed(() => (curSnap.value?.totalIncome ?? 0) - committed.value + (curSnap.value?.carryOver ?? 0));
 const commitmentPct = computed(() => {
   if (!curSnap.value?.totalIncome) return 0;
   return Math.min(100, (committed.value / curSnap.value.totalIncome) * 100);
@@ -220,8 +221,8 @@ const commitInsights = computed((): Insight[] => {
   else                list.push({ text: `${pct.toFixed(0)}% comprometida — boa margem de manobra.`, sentiment: 'good' });
   if (freeToSpend.value < 0)
     list.push({ text: `Comprometimentos superam a receita em ${fmt(Math.abs(freeToSpend.value))}.`, sentiment: 'bad' });
-  if (commitmentPct.value >= 55 && curSnap.value?.breakdown.billExpense) {
-    const pctBill = (curSnap.value.breakdown.billExpense / (curSnap.value.totalIncome || 1)) * 100;
+  if (commitmentPct.value >= 55 && committed.value) {
+    const pctBill = (committed.value / (curSnap.value?.totalIncome || 1)) * 100;
     if (pctBill >= 30)
       list.push({ text: `Bills e parcelas consomem ${pctBill.toFixed(0)}% da receita — considere renegociar ou antecipar.`, sentiment: 'neutral' });
   }
