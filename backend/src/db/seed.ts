@@ -84,6 +84,10 @@ async function seed() {
     { userId: uid, name: "Ônibus Mariana",    type: "expense", amount: "140",  frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cOnibus.id },
     { userId: uid, name: "Ônibus Mateus",     type: "expense", amount: "50",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cOnibus.id },
     { userId: uid, name: "Anuidade 2397",     type: "expense", amount: "50",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cAssinaturas.id },
+    // Parcelas Bradesco 2397 (a partir de setembro = 3ª parcela de cada)
+    { userId: uid, name: "Americanas SA (3/5)",                    type: "expense", amount: "5.37",   frequency: "monthly", startDate: start, endDate: "2026-11-30", fromAccountId: brad2397.id },
+    { userId: uid, name: "Marisa (3/3)",                           type: "expense", amount: "53.32",  frequency: "monthly", startDate: start, endDate: "2026-09-30", fromAccountId: brad2397.id, categoryId: cRoupas.id },
+    { userId: uid, name: "MP*Manicure (tela iPhone Mariana) (3/7)",type: "expense", amount: "108.38", frequency: "monthly", startDate: start, endDate: "2027-01-31", fromAccountId: brad2397.id, categoryId: cSaude.id },
     // Parcelas BB Crédito 1000 (a partir de setembro = 4ª parcela de cada)
     { userId: uid, name: "Costao lua de mel (4/10)",  type: "expense", amount: "278.75", frequency: "monthly", startDate: start, endDate: "2027-03-31", fromAccountId: bbCredito.id, categoryId: cDate.id },
     { userId: uid, name: "Milium Loja 04 (4/5)",      type: "expense", amount: "21.30",  frequency: "monthly", startDate: start, endDate: "2026-10-31", fromAccountId: bbCredito.id },
@@ -98,8 +102,10 @@ async function seed() {
     // Agosto encerrado: saldo real do BB Corrente
     { userId: uid, type: "expense", amount: "838.03",  date: "2026-08-31", month: 8, year: 2026, description: "Saldo agosto (encerrado)",       fromAccountId: bbCorrente.id, toAccountId: null, categoryId: null },
     // Setembro: fatura atrasada de agosto e compras à vista no BB Crédito
-    { userId: uid, type: "expense", amount: "1185.54", date: "2026-09-01", month: 9, year: 2026, description: "Fatura agosto (atrasada)",        fromAccountId: bbCredito.id,  toAccountId: null, categoryId: null },
-    { userId: uid, type: "expense", amount: "119.00",  date: "2026-09-01", month: 9, year: 2026, description: "Compras à vista setembro (BB)",   fromAccountId: bbCredito.id,  toAccountId: null, categoryId: null },
+    { userId: uid, type: "expense", amount: "1185.54", date: "2026-09-01", month: 9, year: 2026, description: "Fatura agosto (atrasada)",              fromAccountId: bbCredito.id, toAccountId: null, categoryId: null },
+    { userId: uid, type: "expense", amount: "119.00",  date: "2026-09-01", month: 9, year: 2026, description: "Compras à vista setembro (BB)",         fromAccountId: bbCredito.id, toAccountId: null, categoryId: null },
+    // Setembro: compras à vista Bradesco 2397
+    { userId: uid, type: "expense", amount: "6.32",    date: "2026-09-01", month: 9, year: 2026, description: "Compras à vista setembro (Brad 2397)",  fromAccountId: brad2397.id,  toAccountId: null, categoryId: null },
   ]);
 
   console.log("✅ Seed Mateus completo:");
