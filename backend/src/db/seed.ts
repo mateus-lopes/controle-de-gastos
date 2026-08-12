@@ -84,15 +84,26 @@ async function seed() {
     { userId: uid, name: "Ônibus Mariana",    type: "expense", amount: "140",  frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cOnibus.id },
     { userId: uid, name: "Ônibus Mateus",     type: "expense", amount: "50",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cOnibus.id },
     { userId: uid, name: "Anuidade 2397",     type: "expense", amount: "50",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cAssinaturas.id },
+    // Parcelas BB Crédito 1000 (a partir de setembro = 4ª parcela de cada)
+    { userId: uid, name: "Costao lua de mel (4/10)",  type: "expense", amount: "278.75", frequency: "monthly", startDate: start, endDate: "2027-03-31", fromAccountId: bbCredito.id, categoryId: cDate.id },
+    { userId: uid, name: "Milium Loja 04 (4/5)",      type: "expense", amount: "21.30",  frequency: "monthly", startDate: start, endDate: "2026-10-31", fromAccountId: bbCredito.id },
+    { userId: uid, name: "Milium Loja 05 (4/10)",     type: "expense", amount: "24.55",  frequency: "monthly", startDate: start, endDate: "2027-03-31", fromAccountId: bbCredito.id },
+    { userId: uid, name: "Sorria Odontologia (4/15)", type: "expense", amount: "133.33", frequency: "monthly", startDate: start, endDate: "2027-08-31", fromAccountId: bbCredito.id, categoryId: cSaude.id },
+    { userId: uid, name: "Cosmeticos Carioca (4/4)",  type: "expense", amount: "51.97",  frequency: "monthly", startDate: start, endDate: "2026-09-30", fromAccountId: bbCredito.id },
+    { userId: uid, name: "Havan Joinville (5/5)",     type: "expense", amount: "20.00",  frequency: "monthly", startDate: start, endDate: "2026-09-30", fromAccountId: bbCredito.id },
   ]);
 
-  // ---- Agosto encerrado: uma transação representando o saldo real do BB ----
+  // ---- Transações de abertura ----
   await db.insert(transactions).values([
-    { userId: uid, type: "expense", amount: "838.03", date: "2026-08-31", month: 8, year: 2026, description: "Saldo agosto (encerrado)", fromAccountId: bbCorrente.id, toAccountId: null, categoryId: null },
+    // Agosto encerrado: saldo real do BB Corrente
+    { userId: uid, type: "expense", amount: "838.03",  date: "2026-08-31", month: 8, year: 2026, description: "Saldo agosto (encerrado)",       fromAccountId: bbCorrente.id, toAccountId: null, categoryId: null },
+    // Setembro: fatura atrasada de agosto e compras à vista no BB Crédito
+    { userId: uid, type: "expense", amount: "1185.54", date: "2026-09-01", month: 9, year: 2026, description: "Fatura agosto (atrasada)",        fromAccountId: bbCredito.id,  toAccountId: null, categoryId: null },
+    { userId: uid, type: "expense", amount: "119.00",  date: "2026-09-01", month: 9, year: 2026, description: "Compras à vista setembro (BB)",   fromAccountId: bbCredito.id,  toAccountId: null, categoryId: null },
   ]);
 
   console.log("✅ Seed Mateus completo:");
-  console.log("   → 9 contas | 9 categorias | 14 recorrentes | 1 transação de fechamento agosto");
+  console.log("   → 9 contas | 9 categorias | 20 recorrentes | 3 transações (ago encerrado + set BB)");
   console.log("   → Login: mateusalbano22@gmail.com / c7t?Waw4D6");
 
   await seedThiago(hash);
