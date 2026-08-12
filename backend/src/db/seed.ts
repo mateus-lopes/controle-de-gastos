@@ -106,6 +106,8 @@ async function seed() {
     { userId: uid, type: "expense", amount: "119.00",  date: "2026-09-01", month: 9, year: 2026, description: "Compras à vista setembro (BB)",         fromAccountId: bbCredito.id, toAccountId: null, categoryId: null },
     // Setembro: compras à vista Bradesco 2397
     { userId: uid, type: "expense", amount: "6.32",    date: "2026-09-01", month: 9, year: 2026, description: "Compras à vista setembro (Brad 2397)",  fromAccountId: brad2397.id,  toAccountId: null, categoryId: null },
+    // Setembro: compras à vista Bradesco 2415
+    { userId: uid, type: "expense", amount: "26.00",   date: "2026-09-01", month: 9, year: 2026, description: "Compras à vista setembro (Brad 2415)",  fromAccountId: brad2415.id,  toAccountId: null, categoryId: null },
   ]);
 
   console.log("✅ Seed Mateus completo:");
