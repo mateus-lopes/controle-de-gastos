@@ -76,7 +76,7 @@ const freeToSpend   = computed(() => {
   return income - committed.value + Math.min(0, carry);
 });
 const commitmentPct = computed(() => {
-  if (!curSnap.value?.totalIncome) return 0;
+  if (!curSnap.value?.totalIncome) return committed.value > 0 ? 100 : 0;
   return Math.min(100, (committed.value / curSnap.value.totalIncome) * 100);
 });
 const freeColor = computed(() => {
