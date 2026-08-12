@@ -43,7 +43,11 @@ async function getMonthSaldo(userId: number, month: number, year: number): Promi
   return income - expense;
 }
 
-async function upsertCarryOverTransactions(userId: number, month: number, year: number) {
+export function nextMonthYear(month: number, year: number) {
+  return month === 12 ? { month: 1, year: year + 1 } : { month: month + 1, year };
+}
+
+export async function upsertCarryOverTransactions(userId: number, month: number, year: number) {
   const prev = prevMonthYear(month, year);
 
   // Buscar todas as contas líquidas (não-investimento)
