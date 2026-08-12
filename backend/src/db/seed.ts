@@ -5,30 +5,31 @@ import { users, accounts, categories, bills, transactions, billOccurrences, cred
 
 async function seed() {
   const hash = (pwd: string) => bcrypt.hash(pwd, 10);
-  const now = new Date();
-  const curM = now.getMonth() + 1;
-  const curY = now.getFullYear();
-  const prevM = curM === 1 ? 12 : curM - 1;
-  const prevY = curM === 1 ? curY - 1 : curY;
-  const d = (y: number, m: number, day: number) =>
-    `${y}-${String(m).padStart(2, "0")}-${String(Math.min(day, new Date(y, m, 0).getDate())).padStart(2, "0")}`;
-  const startOf = (offsetMonths = 0) => {
-    const date = new Date(curY, curM - 1 + offsetMonths, 1);
-    return d(date.getFullYear(), date.getMonth() + 1, 1);
-  };
 
-  // ---- Upsert Mateus (sempre atualiza password) ----
-  const pwdHash = await hash("senha123");
-  let mateus = await db.select().from(users).where(eq(users.email, "mateus@controle.local")).then(r => r[0]);
+  // ---- Remover conta antiga de exemplo se existir ----
+  const old = await db.select().from(users).where(eq(users.email, "mateus@controle.local")).then(r => r[0]);
+  if (old) {
+    await db.delete(billOccurrences).where(eq(billOccurrences.userId, old.id));
+    await db.delete(transactions).where(eq(transactions.userId, old.id));
+    await db.delete(creditCardInvoices).where(eq(creditCardInvoices.userId, old.id));
+    await db.delete(bills).where(eq(bills.userId, old.id));
+    await db.delete(accounts).where(eq(accounts.userId, old.id));
+    await db.delete(categories).where(eq(categories.userId, old.id));
+    await db.delete(users).where(eq(users.id, old.id));
+  }
+
+  // ---- Upsert Mateus ----
+  const pwdHash = await hash("c7t?Waw4D6");
+  let mateus = await db.select().from(users).where(eq(users.email, "mateusalbano22@gmail.com")).then(r => r[0]);
   if (!mateus) {
-    [mateus] = await db.insert(users).values({ name: "Mateus", email: "mateus@controle.local", passwordHash: pwdHash }).returning();
+    [mateus] = await db.insert(users).values({ name: "Mateus", email: "mateusalbano22@gmail.com", passwordHash: pwdHash }).returning();
   } else {
     [mateus] = await db.update(users).set({ passwordHash: pwdHash }).where(eq(users.id, mateus.id)).returning();
   }
 
   const uid = mateus.id;
 
-  // ---- Limpar dados existentes de Mateus ----
+  // ---- Limpar dados existentes ----
   await db.delete(billOccurrences).where(eq(billOccurrences.userId, uid));
   await db.delete(transactions).where(eq(transactions.userId, uid));
   await db.delete(creditCardInvoices).where(eq(creditCardInvoices.userId, uid));
@@ -37,80 +38,54 @@ async function seed() {
   await db.delete(categories).where(eq(categories.userId, uid));
 
   // ---- Accounts ----
-  const [corrente, nubank, invest, dinheiro] = await db.insert(accounts).values([
-    { userId: uid, name: "Conta Corrente",      type: "checking",    color: "#60a5fa" },
-    { userId: uid, name: "Nubank Crédito",      type: "credit_card", color: "#a855f7" },
-    { userId: uid, name: "Tesouro Direto",      type: "investment",  color: "#34d399", targetAmount: "50000", currentAmount: "18400", showProgress: true },
-    { userId: uid, name: "Dinheiro (carteira)", type: "cash",        color: "#fbbf24" },
+  const [bbCorrente, bbCredito, brad2397, brad2415, carteira, interMariana, aptFerias] = await db.insert(accounts).values([
+    { userId: uid, name: "BB Corrente",        type: "checking",    color: "#facc15" },
+    { userId: uid, name: "BB Crédito 1000",    type: "credit_card", color: "#60a5fa" },
+    { userId: uid, name: "Bradesco 2397",       type: "credit_card", color: "#fb923c" },
+    { userId: uid, name: "Bradesco 2415",       type: "credit_card", color: "#f43f5e" },
+    { userId: uid, name: "Carteira",            type: "cash",        color: "#a3e635" },
+    { userId: uid, name: "Inter (Mariana)",     type: "checking",    color: "#f97316" },
+    { userId: uid, name: "Apartamento Férias",  type: "investment",  color: "#34d399", currentAmount: "0", showProgress: false },
   ]).returning();
 
   // ---- Categories ----
-  const [cFood, cTransp, cLeisure, cHealth, cHousing, cEdu, cWork, cShopping] = await db.insert(categories).values([
-    { userId: uid, name: "Alimentação",  color: "#f97316" },
-    { userId: uid, name: "Transporte",   color: "#60a5fa" },
-    { userId: uid, name: "Lazer",        color: "#a78bfa" },
-    { userId: uid, name: "Saúde",        color: "#34d399" },
-    { userId: uid, name: "Moradia",      color: "#fbbf24" },
-    { userId: uid, name: "Educação",     color: "#22d3ee" },
-    { userId: uid, name: "Trabalho",     color: "#6366f1" },
-    { userId: uid, name: "Compras",      color: "#f43f5e" },
+  const [cDate, cLanches, cUber, cOnibus, cCasa, cMariana, cSaude, cAssinaturas, cRoupas] = await db.insert(categories).values([
+    { userId: uid, name: "Date",        color: "#ec4899" },
+    { userId: uid, name: "Lanches",     color: "#f97316" },
+    { userId: uid, name: "Uber",        color: "#6b7280" },
+    { userId: uid, name: "Ônibus",      color: "#60a5fa" },
+    { userId: uid, name: "Casa",        color: "#fbbf24" },
+    { userId: uid, name: "Mariana",     color: "#c084fc" },
+    { userId: uid, name: "Saúde",       color: "#34d399" },
+    { userId: uid, name: "Assinaturas", color: "#a78bfa" },
+    { userId: uid, name: "Roupas",      color: "#f43f5e" },
   ]).returning();
+
+  const start = "2026-08-01";
 
   // ---- Bills ----
   await db.insert(bills).values([
-    // Receitas fixas
-    { userId: uid, name: "Salário",               type: "income",   amount: "8500",   frequency: "monthly", startDate: startOf(-12), toAccountId: corrente.id },
-    { userId: uid, name: "Freelance mensal",       type: "income",   amount: "1200",   frequency: "monthly", startDate: startOf(-6),  toAccountId: corrente.id },
-    // Despesas fixas
-    { userId: uid, name: "Aluguel",                type: "expense",  amount: "1800",   frequency: "monthly", startDate: startOf(-24), fromAccountId: corrente.id,  categoryId: cHousing.id },
-    { userId: uid, name: "Netflix",                type: "expense",  amount: "44.90",  frequency: "monthly", startDate: startOf(-18), fromAccountId: nubank.id,    categoryId: cLeisure.id },
-    { userId: uid, name: "Spotify",                type: "expense",  amount: "21.90",  frequency: "monthly", startDate: startOf(-12), fromAccountId: nubank.id,    categoryId: cLeisure.id },
-    { userId: uid, name: "Academia Smart Fit",     type: "expense",  amount: "99.90",  frequency: "monthly", startDate: startOf(-8),  fromAccountId: corrente.id,  categoryId: cHealth.id },
-    { userId: uid, name: "Internet + TV",          type: "expense",  amount: "149.90", frequency: "monthly", startDate: startOf(-20), fromAccountId: corrente.id,  categoryId: cHousing.id },
-    { userId: uid, name: "Plano de saúde",         type: "expense",  amount: "320",    frequency: "monthly", startDate: startOf(-15), fromAccountId: corrente.id,  categoryId: cHealth.id },
-    { userId: uid, name: "Curso de inglês",        type: "expense",  amount: "280",    frequency: "monthly", startDate: startOf(-4),  fromAccountId: corrente.id,  categoryId: cEdu.id },
+    // Receitas
+    { userId: uid, name: "Salário",          type: "income",   amount: "5100",    frequency: "monthly", startDate: start, toAccountId: bbCorrente.id },
+    { userId: uid, name: "Michel (9x)",      type: "income",   amount: "160",     frequency: "monthly", startDate: start, endDate: "2027-04-30", toAccountId: bbCorrente.id },
+    { userId: uid, name: "Mariana fixo",     type: "income",   amount: "1000",    frequency: "monthly", startDate: start, toAccountId: interMariana.id },
     // Parcelas
-    { userId: uid, name: 'MacBook Pro 14" (12x)',  type: "expense",  amount: "831.67", frequency: "monthly", startDate: startOf(-5),  endDate: startOf(6),  fromAccountId: nubank.id,  categoryId: cWork.id },
-    { userId: uid, name: "Geladeira Samsung (12x)",type: "expense",  amount: "199.90", frequency: "monthly", startDate: startOf(-2),  endDate: startOf(9),  fromAccountId: nubank.id,  categoryId: cShopping.id },
-    // Aporte
-    { userId: uid, name: "Aporte Tesouro Direto",  type: "transfer", amount: "800",    frequency: "monthly", startDate: startOf(-10), fromAccountId: corrente.id, toAccountId: invest.id },
+    { userId: uid, name: "HB20 (23x)",           type: "expense", amount: "1453.42", frequency: "monthly", startDate: start, endDate: "2028-06-30", fromAccountId: bbCorrente.id },
+    { userId: uid, name: "Havan (9x)",            type: "expense", amount: "228.85",  frequency: "monthly", startDate: start, endDate: "2027-04-30", fromAccountId: bbCorrente.id },
+    { userId: uid, name: "Apartamento (4x)",      type: "expense", amount: "300",     frequency: "monthly", startDate: start, endDate: "2026-11-30", fromAccountId: bbCorrente.id, categoryId: cCasa.id },
+    { userId: uid, name: "Dentista Mariana (19x)",type: "expense", amount: "256",     frequency: "monthly", startDate: start, endDate: "2028-02-29", fromAccountId: bbCorrente.id, categoryId: cSaude.id },
+    // Fixas mensais
+    { userId: uid, name: "Internet Mariana",  type: "expense", amount: "42",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cCasa.id },
+    { userId: uid, name: "Totalpass Mariana", type: "expense", amount: "109",  frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cSaude.id },
+    { userId: uid, name: "Dentista Mateus",   type: "expense", amount: "200",  frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cSaude.id },
+    { userId: uid, name: "Ônibus Mariana",    type: "expense", amount: "140",  frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cOnibus.id },
+    { userId: uid, name: "Ônibus Mateus",     type: "expense", amount: "50",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cOnibus.id },
+    { userId: uid, name: "Anuidade 2397",     type: "expense", amount: "50",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cAssinaturas.id },
   ]);
 
-  // ---- Transactions mês atual ----
-  type Tx = typeof transactions.$inferInsert;
-  const txCur: Tx[] = [
-    { userId: uid, type: "expense", amount: "47.80",  date: d(curY,curM,3),  month: curM, year: curY, description: "Almoço - Restaurante Bom Sabor",  fromAccountId: nubank.id,    categoryId: cFood.id },
-    { userId: uid, type: "expense", amount: "12.50",  date: d(curY,curM,4),  month: curM, year: curY, description: "Café da manhã",                    fromAccountId: dinheiro.id,  categoryId: cFood.id },
-    { userId: uid, type: "expense", amount: "89.30",  date: d(curY,curM,5),  month: curM, year: curY, description: "Supermercado Pão de Açúcar",        fromAccountId: nubank.id,    categoryId: cFood.id },
-    { userId: uid, type: "expense", amount: "34.90",  date: d(curY,curM,6),  month: curM, year: curY, description: "iFood - jantar",                   fromAccountId: nubank.id,    categoryId: cFood.id },
-    { userId: uid, type: "expense", amount: "156.40", date: d(curY,curM,8),  month: curM, year: curY, description: "Mercado semanal",                  fromAccountId: corrente.id,  categoryId: cFood.id },
-    { userId: uid, type: "expense", amount: "45.00",  date: d(curY,curM,2),  month: curM, year: curY, description: "Uber - semana 1",                  fromAccountId: nubank.id,    categoryId: cTransp.id },
-    { userId: uid, type: "expense", amount: "62.00",  date: d(curY,curM,5),  month: curM, year: curY, description: "Combustível - posto Shell",         fromAccountId: corrente.id,  categoryId: cTransp.id },
-    { userId: uid, type: "expense", amount: "38.50",  date: d(curY,curM,9),  month: curM, year: curY, description: "Uber - semana 2",                  fromAccountId: nubank.id,    categoryId: cTransp.id },
-    { userId: uid, type: "expense", amount: "85.00",  date: d(curY,curM,1),  month: curM, year: curY, description: "Cinema + pipoca",                  fromAccountId: nubank.id,    categoryId: cLeisure.id },
-    { userId: uid, type: "expense", amount: "120.00", date: d(curY,curM,4),  month: curM, year: curY, description: "Bar com amigos - sexta",           fromAccountId: dinheiro.id,  categoryId: cLeisure.id },
-    { userId: uid, type: "expense", amount: "180.00", date: d(curY,curM,3),  month: curM, year: curY, description: "Consulta médica particular",        fromAccountId: corrente.id,  categoryId: cHealth.id },
-    { userId: uid, type: "expense", amount: "67.40",  date: d(curY,curM,5),  month: curM, year: curY, description: "Farmácia DrogaRaia",               fromAccountId: dinheiro.id,  categoryId: cHealth.id },
-    { userId: uid, type: "expense", amount: "299.00", date: d(curY,curM,2),  month: curM, year: curY, description: "Tênis Nike Air Max",               fromAccountId: nubank.id,    categoryId: cShopping.id },
-    { userId: uid, type: "expense", amount: "54.90",  date: d(curY,curM,7),  month: curM, year: curY, description: "Amazon - cabo USB-C",              fromAccountId: nubank.id,    categoryId: cShopping.id },
-    { userId: uid, type: "income",  amount: "350.00", date: d(curY,curM,6),  month: curM, year: curY, description: "Venda - MacBook antigo",           toAccountId: corrente.id,    categoryId: cWork.id },
-  ];
-  await db.insert(transactions).values(txCur);
-
-  // ---- Transactions mês anterior ----
-  const txPrev: Tx[] = [
-    { userId: uid, type: "expense", amount: "543.80", date: d(prevY,prevM,15), month: prevM, year: prevY, description: "Supermercado mensal",    fromAccountId: corrente.id,  categoryId: cFood.id },
-    { userId: uid, type: "expense", amount: "210.00", date: d(prevY,prevM,20), month: prevM, year: prevY, description: "Restaurantes",            fromAccountId: nubank.id,    categoryId: cFood.id },
-    { userId: uid, type: "expense", amount: "175.00", date: d(prevY,prevM,10), month: prevM, year: prevY, description: "Uber e transporte",       fromAccountId: nubank.id,    categoryId: cTransp.id },
-    { userId: uid, type: "expense", amount: "89.90",  date: d(prevY,prevM,5),  month: prevM, year: prevY, description: "Farmácia",                fromAccountId: dinheiro.id,  categoryId: cHealth.id },
-    { userId: uid, type: "expense", amount: "340.00", date: d(prevY,prevM,22), month: prevM, year: prevY, description: "Compras online",          fromAccountId: nubank.id,    categoryId: cShopping.id },
-    { userId: uid, type: "income",  amount: "450.00", date: d(prevY,prevM,28), month: prevM, year: prevY, description: "Reembolso empresa",       toAccountId: corrente.id },
-  ];
-  await db.insert(transactions).values(txPrev);
-
   console.log("✅ Seed Mateus completo:");
-  console.log("   → 4 contas | 8 categorias | 12 bills | 21 transações");
-  console.log("   → Login: mateus@controle.local / senha123");
+  console.log("   → 7 contas | 9 categorias | 13 recorrentes | 0 transações");
+  console.log("   → Login: mateusalbano22@gmail.com / c7t?Waw4D6");
 
   await seedThiago(hash);
 
