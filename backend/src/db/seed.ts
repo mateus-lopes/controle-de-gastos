@@ -38,11 +38,12 @@ async function seed() {
   await db.delete(categories).where(eq(categories.userId, uid));
 
   // ---- Accounts ----
-  const [bbCorrente, bbCredito, brad2397, brad2415, carteira, interMariana, aptFerias] = await db.insert(accounts).values([
+  const [bbCorrente, bbCredito, brad2397, brad2415, bradCorrente, carteira, interMariana, aptFerias] = await db.insert(accounts).values([
     { userId: uid, name: "BB Corrente",        type: "checking",    color: "#facc15" },
     { userId: uid, name: "BB Crédito 1000",    type: "credit_card", color: "#60a5fa" },
     { userId: uid, name: "Bradesco 2397",       type: "credit_card", color: "#fb923c" },
     { userId: uid, name: "Bradesco 2415",       type: "credit_card", color: "#f43f5e" },
+    { userId: uid, name: "Bradesco Corrente",   type: "checking",    color: "#10b981" },
     { userId: uid, name: "Carteira",            type: "cash",        color: "#a3e635" },
     { userId: uid, name: "Inter (Mariana)",     type: "checking",    color: "#f97316" },
     { userId: uid, name: "Apartamento Férias",  type: "investment",  color: "#34d399", currentAmount: "0", showProgress: false },
@@ -83,8 +84,16 @@ async function seed() {
     { userId: uid, name: "Anuidade 2397",     type: "expense", amount: "50",   frequency: "monthly", startDate: start, fromAccountId: bbCorrente.id, categoryId: cAssinaturas.id },
   ]);
 
+  // ---- Saldo atual agosto 2026 ----
+  await db.insert(transactions).values([
+    { userId: uid, type: "expense", amount: "838.03",  date: "2026-08-01", month: 8, year: 2026, description: "Saldo anterior agosto",   fromAccountId: bbCorrente.id, toAccountId: null, categoryId: null },
+    { userId: uid, type: "expense", amount: "1834.84", date: "2026-08-01", month: 8, year: 2026, description: "Saldo fatura agosto",      fromAccountId: bbCredito.id,  toAccountId: null, categoryId: null },
+    { userId: uid, type: "expense", amount: "173.39",  date: "2026-08-01", month: 8, year: 2026, description: "Saldo fatura agosto",      fromAccountId: brad2397.id,   toAccountId: null, categoryId: null },
+    { userId: uid, type: "expense", amount: "26.00",   date: "2026-08-01", month: 8, year: 2026, description: "Saldo fatura agosto",      fromAccountId: brad2415.id,   toAccountId: null, categoryId: null },
+  ]);
+
   console.log("✅ Seed Mateus completo:");
-  console.log("   → 7 contas | 9 categorias | 13 recorrentes | 0 transações");
+  console.log("   → 8 contas | 9 categorias | 13 recorrentes | 4 transações de abertura");
   console.log("   → Login: mateusalbano22@gmail.com / c7t?Waw4D6");
 
   await seedThiago(hash);
