@@ -106,6 +106,14 @@ const typeColor: Record<string, string> = {
 
 const regularTransactions = computed(() => transactions.value.filter(tx => !tx.isCarryOver));
 
+const totalIncome = computed(() =>
+  regularTransactions.value.filter(tx => tx.type === "income").reduce((s, tx) => s + Number(tx.amount), 0)
+);
+const totalExpense = computed(() =>
+  regularTransactions.value.filter(tx => tx.type === "expense").reduce((s, tx) => s + Number(tx.amount), 0)
+);
+const saldoMes = computed(() => totalIncome.value - totalExpense.value);
+
 const liquidAccounts = computed(() =>
   accountsStore.accounts.filter(a => ["checking", "savings", "cash"].includes(a.type))
 );
@@ -138,6 +146,29 @@ const adjustmentRows = computed(() =>
           <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
         </svg>
       </button>
+    </div>
+
+    <!-- Totalizadores -->
+    <div class="grid grid-cols-3 gap-3 mb-5">
+      <template v-if="loading">
+        <Skeleton class="h-16 rounded-xl" v-for="i in 3" :key="i" />
+      </template>
+      <template v-else>
+        <div class="rounded-xl border border-border bg-card px-4 py-3">
+          <p class="text-xs text-muted-foreground mb-1">Entradas</p>
+          <p class="text-sm font-bold text-emerald-400">+{{ fmt(totalIncome) }}</p>
+        </div>
+        <div class="rounded-xl border border-border bg-card px-4 py-3">
+          <p class="text-xs text-muted-foreground mb-1">Saídas</p>
+          <p class="text-sm font-bold text-rose-400">-{{ fmt(totalExpense) }}</p>
+        </div>
+        <div class="rounded-xl border border-border bg-card px-4 py-3">
+          <p class="text-xs text-muted-foreground mb-1">Saldo</p>
+          <p class="text-sm font-bold" :class="saldoMes >= 0 ? 'text-emerald-400' : 'text-rose-400'">
+            {{ saldoMes >= 0 ? '+' : '' }}{{ fmt(saldoMes) }}
+          </p>
+        </div>
+      </template>
     </div>
 
     <template v-if="loading">

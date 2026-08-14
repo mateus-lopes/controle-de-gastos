@@ -51,6 +51,19 @@ const creditCards = computed(() => accounts.value.filter(a => a.type === "credit
 const investments = computed(() => accounts.value.filter(a => a.type === "investment"));
 const checkingAccounts = computed(() => accounts.value.filter(a => ["checking", "savings", "cash"].includes(a.type)));
 
+const liquidTotal = computed(() =>
+  assetAccounts.value.reduce((s, a) => s + (a.balance ?? 0), 0)
+);
+const openInvoiceTotal = computed(() =>
+  creditCards.value.reduce((s, cc) => {
+    const inv = invoiceCache.value[`${cc.id}-${monthStore.month}-${monthStore.year}`];
+    return s + (inv?.paid ? 0 : (inv?.amount ?? 0));
+  }, 0)
+);
+const investmentTotal = computed(() =>
+  investments.value.reduce((s, a) => s + (a.balance ?? 0), 0)
+);
+
 async function load() {
   loading.value = true;
   try {

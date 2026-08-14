@@ -69,6 +69,16 @@ const currentItems = computed(() => {
   return transfers.value;
 });
 
+const isIncomeLike = computed(() => activeTab.value === "income" || activeTab.value === "transfer");
+
+const tabTotals = computed(() => {
+  const list = currentItems.value;
+  const total = list.reduce((s, b) => s + Number(b.occurrence?.amount ?? b.amount), 0);
+  const paid = list.filter(b => b.occurrence?.paid).reduce((s, b) => s + Number(b.occurrence!.amount), 0);
+  const pending = list.filter(b => b.occurrence && !b.occurrence.paid).reduce((s, b) => s + Number(b.occurrence!.amount), 0);
+  return { total, paid, pending };
+});
+
 function fmt(v: string | number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v));
 }
@@ -142,11 +152,30 @@ async function submit() {
 
     <template v-if="loading">
       <Skeleton class="h-10 w-full mb-3" />
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <Skeleton class="h-16 rounded-xl" v-for="i in 3" :key="i" />
+      </div>
       <Skeleton class="h-16 w-full mb-2" v-for="i in 3" :key="i" />
     </template>
 
     <template v-else>
       <Tabs :tabs="tabs" v-model="activeTab" />
+
+      <!-- Totalizadores -->
+      <div class="grid grid-cols-3 gap-3 mb-4 mt-3">
+        <div class="rounded-xl border border-border bg-card px-4 py-3">
+          <p class="text-xs text-muted-foreground mb-1">{{ isIncomeLike ? 'Previsto' : 'Comprometido' }}</p>
+          <p class="text-sm font-bold" :class="isIncomeLike ? 'text-emerald-400' : 'text-rose-400'">{{ fmt(tabTotals.total) }}</p>
+        </div>
+        <div class="rounded-xl border border-border bg-card px-4 py-3">
+          <p class="text-xs text-muted-foreground mb-1">{{ isIncomeLike ? 'Recebido' : 'Pago' }}</p>
+          <p class="text-sm font-bold text-muted-foreground">{{ fmt(tabTotals.paid) }}</p>
+        </div>
+        <div class="rounded-xl border border-border bg-card px-4 py-3">
+          <p class="text-xs text-muted-foreground mb-1">{{ isIncomeLike ? 'A receber' : 'A pagar' }}</p>
+          <p class="text-sm font-bold" :class="tabTotals.pending > 0 ? (isIncomeLike ? 'text-emerald-400' : 'text-rose-400') : 'text-muted-foreground'">{{ fmt(tabTotals.pending) }}</p>
+        </div>
+      </div>
 
       <div v-if="!currentItems.length" class="flex flex-col items-center justify-center py-16 text-center">
         <div class="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center mb-3">
